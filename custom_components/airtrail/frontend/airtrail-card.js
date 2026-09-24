@@ -8,23 +8,27 @@
 const DOMAIN = "airtrail";
 const DEFAULT_COLOR = "#3c83f6";
 
+// `name` is the short label shown on the badge, `label` is used in the editor
 const STATS = {
-  upcoming_flights: { short: "upcoming", label: "Upcoming flights", icon: "mdi:airplane-clock" },
-  past_flights: { short: "past", label: "Past flights", icon: "mdi:history" },
-  total_flights: { short: "flights", label: "Total flights", icon: "mdi:airplane" },
-  total_distance: { label: "Total distance", icon: "mdi:map-marker-distance" },
-  total_flight_time: { label: "Total flight time", icon: "mdi:timer-outline" },
-  airports_visited: { short: "airports", label: "Airports visited", icon: "mdi:airport" },
-  top_airline: { label: "Top airline", icon: "mdi:airplane-marker" },
-  top_airport: { label: "Top airport", icon: "mdi:airport" },
-  top_aircraft: { label: "Top aircraft", icon: "mdi:airplane-cog" },
-  top_route: { label: "Top route", icon: "mdi:routes" },
+  upcoming_flights: { name: "Upcoming", label: "Upcoming flights", icon: "mdi:airplane-clock" },
+  past_flights: { name: "Past", label: "Past flights", icon: "mdi:history" },
+  total_flights: { name: "Total", label: "Total flights", icon: "mdi:airplane" },
+  total_distance: { name: "Distance", label: "Total distance", icon: "mdi:map-marker-distance" },
+  total_flight_time: { name: "Flight time", label: "Total flight time", icon: "mdi:timer-outline" },
+  airports_visited: { name: "Airports", label: "Airports visited", icon: "mdi:airport" },
+  top_airline: { name: "Airline", label: "Top airline", icon: "mdi:airplane-marker" },
+  top_airport: { name: "Airport", label: "Top airport", icon: "mdi:airport" },
+  top_aircraft: { name: "Aircraft", label: "Top aircraft", icon: "mdi:airplane-cog" },
+  top_route: { name: "Route", label: "Top route", icon: "mdi:routes" },
 };
+
+let cardHelpers;
+const loadCardHelpers = () => (cardHelpers ??= window.loadCardHelpers?.());
 
 const DEFAULT_CONFIG = {
   show_header: true,
   stats: ["upcoming_flights", "total_flights", "total_distance", "total_flight_time"],
-  list: "upcoming",
+  lists: ["upcoming"],
   max_flights: 5,
 };
 
@@ -49,6 +53,22 @@ const parseLocal = (value) => {
   return new Date(Date.UTC(+y, +m - 1, +d, +hh, +mm));
 };
 
+const LISTS = ["upcoming", "past"];
+
+/** Convert the old single `list` option into `lists`, and validate. */
+const normalizeConfig = (config) => {
+  const { list, ...rest } = config;
+  if (list !== undefined && rest.lists === undefined) {
+    rest.lists = { both: ["upcoming", "past"], none: [] }[list] ?? [list];
+  }
+  if (rest.lists !== undefined) {
+    if (!Array.isArray(rest.lists) || rest.lists.some((l) => !LISTS.includes(l))) {
+      throw new Error(`lists must only contain: ${LISTS.join(", ")}`);
+    }
+  }
+  return rest;
+};
+
 class AirTrailCard extends HTMLElement {
   static getConfigElement() {
     return document.createElement("airtrail-card-editor");
@@ -65,10 +85,7 @@ class AirTrailCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (config.list && !["upcoming", "past", "none"].includes(config.list)) {
-      throw new Error("list must be one of: upcoming, past, none");
-    }
-    this._config = { ...DEFAULT_CONFIG, ...config };
+    this._config = { ...DEFAULT_CONFIG, ...normalizeConfig(config) };
     this._signature = null;
     if (this._hass) this._render();
   }
@@ -99,7 +116,7 @@ class AirTrailCard extends HTMLElement {
   }
 
   getCardSize() {
-    const list = this._config?.list === "none" ? 0 : this._config?.max_flights ?? 5;
+    const list = (this._config?.lists?.length ?? 1) * (this._config?.max_flights ?? 5);
     return 2 + Math.ceil(list / 1.5);
   }
 
@@ -244,49 +261,77 @@ class AirTrailCard extends HTMLElement {
       </div>`;
   }
 
-  _renderChips() {
-    const chips = (this._config.stats || [])
+  _badgeConfigs() {
+    return (this._config.stats || [])
       .map((key) => [key, this._state(key)])
-      .filter(([, state]) => state && state.state !== "unavailable");
-    if (!chips.length) return "";
-    return `
-      <div class="chips">
-        ${chips
-          .map(([key, state]) => {
-            // Counts share a unit ("flights"), so label them by what they count
-            const short = STATS[key]?.short;
-            const value = short
-              ? `${Number(state.state).toLocaleString(this._hass.locale?.language)} ${short}`
-              : this._hass.formatEntityState
-                ? this._hass.formatEntityState(state)
-                : `${state.state} ${state.attributes.unit_of_measurement ?? ""}`;
-            const label = STATS[key]?.label ?? key;
-            return `
-              <div class="chip" data-entity="${escape(state.entity_id)}" title="${escape(label)}">
-                <ha-icon icon="${escape(STATS[key]?.icon ?? "mdi:airplane")}"></ha-icon>
-                <span>${escape(value)}</span>
-              </div>`;
-          })
-          .join("")}
-      </div>`;
+      .filter(([, state]) => state && state.state !== "unavailable")
+      .map(([key, state]) => ({
+        type: "entity",
+        entity: state.entity_id,
+        name: STATS[key]?.name ?? key,
+        icon: STATS[key]?.icon,
+        color: this._config.color || DEFAULT_COLOR,
+        show_name: true,
+        show_icon: true,
+        show_state: true,
+      }));
+  }
+
+  _renderChips() {
+    return this._badgeConfigs().length ? `<div class="chips"></div>` : "";
+  }
+
+  /** Fill the chips row with Home Assistant's own entity badges. */
+  async _mountBadges() {
+    const container = this.shadowRoot.querySelector(".chips");
+    if (!container) return;
+    const helpers = await loadCardHelpers();
+    // Skip if a newer render has replaced this container in the meantime
+    if (!helpers || !container.isConnected) return;
+
+    const badges = new Map();
+    for (const config of this._badgeConfigs()) {
+      const key = JSON.stringify(config);
+      const badge = this._badges?.get(key) ?? helpers.createBadgeElement(config);
+      badge.hass = this._hass;
+      badges.set(key, badge);
+      container.appendChild(badge);
+    }
+    // Reuse badge elements across renders rather than recreating them
+    this._badges = badges;
   }
 
   _renderList() {
-    if (this._config.list === "none") return "";
-    const source = this._state(this._config.list === "past" ? "past_flights" : "upcoming_flights");
+    const lists = this._config.lists || [];
+    if (lists.length === 1) return this._renderSection(lists[0]);
+    // Label each section when more than one list is shown
+    return lists
+      .map(
+        (kind) => `
+          <div class="section">
+            <span class="heading">${kind === "past" ? "Past" : "Upcoming"}</span>
+            ${this._renderSection(kind)}
+          </div>`,
+      )
+      .join("");
+  }
+
+  _renderSection(kind) {
+    const past = kind === "past";
+    const source = this._state(past ? "past_flights" : "upcoming_flights");
     // Don't repeat the flight that's already shown in the header
     const headerId =
       this._config.show_header !== false && this._state("in_flight")?.state !== "on"
         ? this._state("next_flight")?.attributes?.id
         : undefined;
     const flights = (source?.attributes?.flights || [])
-      .filter((f) => this._config.list === "past" || f.id !== headerId)
+      .filter((f) => past || f.id !== headerId)
       .slice(0, this._config.max_flights);
     if (!flights.length) {
-      const past = this._config.list === "past";
       const days = source?.attributes?.days;
       const range = days ? ` in the ${past ? "last" : "next"} ${days} days` : "";
-      return `<div class="empty">No ${past ? "past" : "upcoming"} flights${escape(range)}</div>`;
+      const other = !past && headerId !== undefined ? "other " : "";
+      return `<div class="empty">No ${other}${past ? "past" : "upcoming"} flights${escape(range)}</div>`;
     }
     return `
       <div class="list" data-entity="${escape(source.entity_id)}">
@@ -346,6 +391,8 @@ class AirTrailCard extends HTMLElement {
         this._moreInfo(el.dataset.entity);
       });
     });
+
+    this._mountBadges();
   }
 }
 
@@ -354,8 +401,8 @@ const STYLES = `
     --spacing: var(--mush-spacing, 12px);
     --icon-size: var(--mush-icon-size, 36px);
     --icon-border-radius: var(--mush-icon-border-radius, 50%);
-    --chip-height: var(--mush-chip-height, 36px);
-    --chip-border-radius: var(--mush-chip-border-radius, 19px);
+    --chip-height: var(--mush-chip-height, 28px);
+    --chip-border-radius: var(--mush-chip-border-radius, 14px);
     --primary-size: var(--mush-card-primary-font-size, 14px);
     --primary-weight: var(--mush-card-primary-font-weight, bold);
     --secondary-size: var(--mush-card-secondary-font-size, 12px);
@@ -386,7 +433,6 @@ const STYLES = `
     min-width: 0;
   }
   .header,
-  .chip,
   .list {
     cursor: pointer;
   }
@@ -455,24 +501,21 @@ const STYLES = `
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--mush-chip-spacing, 8px);
+    gap: var(--mush-chip-spacing, 6px);
+    --ha-badge-size: var(--chip-height);
+    --ha-badge-border-radius: var(--chip-border-radius);
   }
-  .chip {
+  .section {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    height: var(--chip-height);
-    padding: 0 12px 0 10px;
-    box-sizing: border-box;
-    border-radius: var(--chip-border-radius);
-    background: var(--mush-chip-background, var(--secondary-background-color));
-    font-size: 0.85em;
-    font-weight: bold;
-    color: var(--primary-text-color);
-    --mdc-icon-size: 16px;
+    flex-direction: column;
+    gap: 8px;
   }
-  .chip ha-icon {
-    color: var(--airtrail-color);
+  .heading {
+    font-size: var(--secondary-size);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--secondary-text-color);
   }
   .list {
     display: flex;
@@ -534,26 +577,26 @@ const EDITOR_SCHEMA = [
     },
   },
   {
-    type: "grid",
-    name: "",
-    schema: [
-      {
-        name: "list",
-        selector: {
-          select: {
-            mode: "dropdown",
-            options: [
-              { value: "upcoming", label: "Upcoming flights" },
-              { value: "past", label: "Past flights" },
-              { value: "none", label: "Hidden" },
-            ],
-          },
-        },
+    name: "lists",
+    selector: {
+      select: {
+        multiple: true,
+        reorder: true,
+        mode: "dropdown",
+        options: [
+          { value: "upcoming", label: "Upcoming" },
+          { value: "past", label: "Past" },
+        ],
       },
-      { name: "max_flights", selector: { number: { min: 1, max: 20, mode: "box" } } },
-    ],
+    },
   },
+  { name: "max_flights", selector: { number: { min: 1, max: 20, mode: "box" } } },
 ];
+
+const EDITOR_HELPERS = {
+  stats: "Badges shown below the next flight, in this order",
+  lists: "Flight lists shown at the bottom of the card, in this order",
+};
 
 const EDITOR_LABELS = {
   device: "AirTrail device (defaults to the first one)",
@@ -561,7 +604,7 @@ const EDITOR_LABELS = {
   color: "Accent colour",
   show_header: "Show next / current flight",
   stats: "Statistics",
-  list: "Flight list",
+  lists: "Flight lists",
   max_flights: "Flights to show",
 };
 
@@ -582,6 +625,7 @@ class AirTrailCardEditor extends HTMLElement {
       this._form = document.createElement("ha-form");
       this._form.schema = EDITOR_SCHEMA;
       this._form.computeLabel = (schema) => EDITOR_LABELS[schema.name] ?? schema.name;
+      this._form.computeHelper = (schema) => EDITOR_HELPERS[schema.name];
       this._form.addEventListener("value-changed", (ev) => {
         ev.stopPropagation();
         this.dispatchEvent(
@@ -595,11 +639,12 @@ class AirTrailCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.data = { ...DEFAULT_CONFIG, ...this._config };
+    this._form.data = { ...DEFAULT_CONFIG, ...normalizeConfig(this._config) };
   }
 }
 
-if (!customElements.get("airtrail-card")) {
+const defineElements = () => {
+  if (customElements.get("airtrail-card")) return;
   customElements.define("airtrail-card", AirTrailCard);
   customElements.define("airtrail-card-editor", AirTrailCardEditor);
 
@@ -611,4 +656,16 @@ if (!customElements.get("airtrail-card")) {
     preview: true,
     documentationURL: "https://github.com/owenvoke/hass-airtrail",
   });
-}
+};
+
+// This script can load before Home Assistant has installed its own custom element
+// registry, and anything defined before then is invisible to dashboards. The app
+// element is defined once that registry is in place, so wait for it.
+const whenReady = () => {
+  if (window.customElements.get("home-assistant")) {
+    defineElements();
+  } else {
+    setTimeout(whenReady, 50);
+  }
+};
+whenReady();

@@ -86,8 +86,8 @@ type: custom:airtrail-card
 | `color`       | AirTrail blue                                                            | Accent colour, a theme colour name (e.g. `purple`) or any CSS colour |
 | `show_header` | `true`                                                                   | Show the next (or current) flight                    |
 | `stats`       | `upcoming_flights`, `total_flights`, `total_distance`, `total_flight_time` | Statistic chips to show, in order ²                  |
-| `list`        | `upcoming`                                                               | Flight list to show: `upcoming`, `past` or `none`    |
-| `max_flights` | `5`                                                                      | Maximum number of flights in the list                |
+| `lists`       | `[upcoming]`                                                             | Flight lists to show, in order: `upcoming` and/or `past` (`[]` hides them) |
+| `max_flights` | `5`                                                                      | Maximum number of flights in each list               |
 
 ² Any of `upcoming_flights`, `past_flights`, `total_flights`, `total_distance`, `total_flight_time`,
 `airports_visited`, `top_airline`, `top_airport`, `top_aircraft` and `top_route`.
