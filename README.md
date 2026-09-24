@@ -69,6 +69,32 @@ aircraft type and registration, your seat, seat class and reason for travel, oth
 
 Flights that are only recorded to the month or year are excluded from the time-based sensors and the calendar.
 
+### Card
+
+The integration includes a Mushroom-style dashboard card, which is loaded automatically (no resource needs adding). It
+shows your next flight (or live progress while you're in the air), statistic chips and a list of upcoming or past
+flights. Search for "AirTrail" when adding a card to use the visual editor, or add it in YAML:
+
+```yaml
+type: custom:airtrail-card
+```
+
+| Option        | Default                                                                  | Description                                          |
+|---------------|--------------------------------------------------------------------------|------------------------------------------------------|
+| `device`      | The first AirTrail device                                                | The AirTrail device to show                          |
+| `title`       | None                                                                     | A title above the card                               |
+| `color`       | AirTrail blue                                                            | Accent colour, a theme colour name (e.g. `purple`) or any CSS colour |
+| `show_header` | `true`                                                                   | Show the next (or current) flight                    |
+| `stats`       | `upcoming_flights`, `total_flights`, `total_distance`, `total_flight_time` | Statistic chips to show, in order ²                  |
+| `list`        | `upcoming`                                                               | Flight list to show: `upcoming`, `past` or `none`    |
+| `max_flights` | `5`                                                                      | Maximum number of flights in the list                |
+
+² Any of `upcoming_flights`, `past_flights`, `total_flights`, `total_distance`, `total_flight_time`,
+`airports_visited`, `top_airline`, `top_airport`, `top_aircraft` and `top_route`.
+
+Tapping any part of the card opens the details of the related entity. The card uses Mushroom's theme variables, so
+it matches Mushroom cards and themes, but Mushroom doesn't need to be installed.
+
 ### Example
 
 Send a notification with your gate when a flight is three hours away:
