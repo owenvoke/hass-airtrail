@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.18.0", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hass-airtrail"
+dynamic = ["version"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.envs.default]
+dependencies = [
+    "black",
+]
+
+[tool.hatch.envs.default.scripts]
+test = [
+    "black --check --diff .",
+]
+lint = [
+    "black ."
+]
+
+[tool.black]
+target-version = ["py314"]

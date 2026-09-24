@@ -1,0 +1,47 @@
+name: Tests
+
+on: ['push', 'pull_request']
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    name: HACS Action
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: HACS Action
+        uses: hacs/action@main
+        with:
+          category: integration
+
+  hassfest:
+    runs-on: ubuntu-latest
+    name: Hassfest Validation
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Hassfest Validation
+        uses: home-assistant/actions/hassfest@master
+
+  style:
+    runs-on: ubuntu-latest
+    name: Check style formatting
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: python3 -m pip install black
+
+      - name: Style Check
+        run: black --color --check .

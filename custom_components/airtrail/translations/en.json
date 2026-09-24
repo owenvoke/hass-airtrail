@@ -1,0 +1,99 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "AirTrail has already been configured for this user",
+            "reauth_successful": "Re-authentication was successful"
+        },
+        "error": {
+            "cannot_connect": "Could not connect to AirTrail. Check the URL and that the instance is reachable.",
+            "invalid_auth": "The API key is invalid or does not have permission to read flights.",
+            "unknown": "Unexpected response from AirTrail."
+        },
+        "step": {
+            "user": {
+                "description": "Create an API key in AirTrail under Settings → Security.",
+                "data": {
+                    "url": "URL",
+                    "api_key": "API key",
+                    "verify_ssl": "Verify SSL certificate"
+                },
+                "data_description": {
+                    "url": "The URL of your AirTrail instance, e.g. {example_url}"
+                }
+            },
+            "reauth_confirm": {
+                "title": "Re-authenticate AirTrail",
+                "description": "The API key for {url} is no longer valid. Enter a new one.",
+                "data": {
+                    "api_key": "API key"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "upcoming_days": "Upcoming flights window",
+                    "past_days": "Past flights window",
+                    "scan_interval": "Scan interval"
+                },
+                "data_description": {
+                    "upcoming_days": "How many days ahead to include in the upcoming flights sensor.",
+                    "past_days": "How many days back to include in the past flights sensor.",
+                    "scan_interval": "How often to poll AirTrail, in minutes."
+                }
+            }
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "in_flight": {
+                "name": "In flight"
+            }
+        },
+        "calendar": {
+            "flights": {
+                "name": "Flights"
+            }
+        },
+        "sensor": {
+            "next_flight": {
+                "name": "Next flight"
+            },
+            "last_flight": {
+                "name": "Last flight"
+            },
+            "upcoming_flights": {
+                "name": "Upcoming flights"
+            },
+            "past_flights": {
+                "name": "Past flights"
+            },
+            "total_flights": {
+                "name": "Total flights"
+            },
+            "total_distance": {
+                "name": "Total distance"
+            },
+            "total_flight_time": {
+                "name": "Total flight time"
+            },
+            "airports_visited": {
+                "name": "Airports visited"
+            },
+            "top_airline": {
+                "name": "Top airline"
+            },
+            "top_airport": {
+                "name": "Top airport"
+            },
+            "top_aircraft": {
+                "name": "Top aircraft"
+            },
+            "top_route": {
+                "name": "Top route"
+            }
+        }
+    }
+}

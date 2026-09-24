@@ -1,0 +1,12 @@
+{
+  "domain": "airtrail",
+  "name": "AirTrail",
+  "codeowners": ["@owenvoke"],
+  "config_flow": true,
+  "documentation": "https://github.com/owenvoke/hass-airtrail",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/owenvoke/hass-airtrail/issues",
+  "requirements": [],
+  "version": "0.0.0"
+}
