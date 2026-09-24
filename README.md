@@ -88,9 +88,14 @@ type: custom:airtrail-card
 | `stats`       | `upcoming_flights`, `total_flights`, `total_distance`, `total_flight_time` | Statistic chips to show, in order ²                  |
 | `lists`       | `[upcoming]`                                                             | Flight lists to show, in order: `upcoming` and/or `past` (`[]` hides them) |
 | `max_flights` | `5`                                                                      | Maximum number of flights in each list               |
+| `entry_details` | `flight_number`, `airline`, `departure_time`, `relative`               | What each list entry shows, in order ³               |
+| `route`       | `both`                                                                   | How routes are shown: `codes` (`LHR → JFK`), `locations` (`London → New York`) or `both` |
 
 ² Any of `upcoming_flights`, `past_flights`, `total_flights`, `total_distance`, `total_flight_time`,
 `airports_visited`, `top_airline`, `top_airport`, `top_aircraft` and `top_route`.
+
+³ Any of `flight_number`, `airline`, `departure_time`, `arrival_time`, `duration`, `distance`, `aircraft`,
+`seat`, `seat_class` and `relative` (the time until or since the flight, shown on the right).
 
 Tapping any part of the card opens the details of the related entity. The card uses Mushroom's theme variables, so
 it matches Mushroom cards and themes, but Mushroom doesn't need to be installed.

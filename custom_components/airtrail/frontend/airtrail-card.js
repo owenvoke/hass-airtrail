@@ -22,6 +22,21 @@ const STATS = {
   top_route: { name: "Route", label: "Top route", icon: "mdi:routes" },
 };
 
+// What each flight list entry can show beneath its route. `relative` is shown on
+// the right of the entry rather than in the details line.
+const ENTRY_DETAILS = {
+  flight_number: "Flight number",
+  airline: "Airline",
+  departure_time: "Departure time",
+  arrival_time: "Arrival time",
+  duration: "Duration",
+  distance: "Distance",
+  aircraft: "Aircraft",
+  seat: "Seat",
+  seat_class: "Class",
+  relative: "Time until / since",
+};
+
 let cardHelpers;
 const loadCardHelpers = () => (cardHelpers ??= window.loadCardHelpers?.());
 
@@ -30,7 +45,11 @@ const DEFAULT_CONFIG = {
   stats: ["upcoming_flights", "total_flights", "total_distance", "total_flight_time"],
   lists: ["upcoming"],
   max_flights: 5,
+  entry_details: ["flight_number", "airline", "departure_time", "relative"],
+  route: "both",
 };
+
+const ROUTES = ["codes", "locations", "both"];
 
 const escape = (value) =>
   String(value ?? "").replace(
@@ -58,6 +77,9 @@ const LISTS = ["upcoming", "past"];
 /** Convert the old single `list` option into `lists`, and validate. */
 const normalizeConfig = (config) => {
   const { list, ...rest } = config;
+  if (rest.route !== undefined && !ROUTES.includes(rest.route)) {
+    throw new Error(`route must be one of: ${ROUTES.join(", ")}`);
+  }
   if (list !== undefined && rest.lists === undefined) {
     rest.lists = { both: ["upcoming", "past"], none: [] }[list] ?? [list];
   }
@@ -191,6 +213,57 @@ class AirTrailCard extends HTMLElement {
     );
   }
 
+  /** The route as airport codes, locations or both, honouring the card options. */
+  _route(f, { html = false } = {}) {
+    const codes = f.origin && f.destination ? `${f.origin} → ${f.destination}` : f.route;
+    const cities =
+      f.origin_city && f.destination_city ? `${f.origin_city} → ${f.destination_city}` : null;
+    const route = this._config.route || "both";
+    // Fall back to codes when a flight has no locations recorded
+    const showCities = route !== "codes" && cities;
+    const showCodes = route !== "locations" || !showCities;
+
+    if (!html) return [showCodes && codes, showCities && cities].filter(Boolean).join(" · ");
+    if (showCodes && showCities) {
+      return `${escape(codes)}<span class="separator">·</span><span class="muted">${escape(cities)}</span>`;
+    }
+    return escape(showCodes ? codes : cities);
+  }
+
+  _title(f, options) {
+    const route = this._route(f, options);
+    if (!f.flight_number) return route;
+    return `${options?.html ? escape(f.flight_number) : f.flight_number} ${route}`;
+  }
+
+  _detail(f, key) {
+    const lang = this._hass.locale?.language;
+    const time = (value) =>
+      value ? this._formatLocal(value, { hour: "2-digit", minute: "2-digit" }) : null;
+    switch (key) {
+      case "flight_number":
+        return f.flight_number;
+      case "airline":
+        return f.airline;
+      case "departure_time":
+        return time(f.departure_local);
+      case "arrival_time":
+        return f.arrival_local ? `Arr. ${time(f.arrival_local)}` : null;
+      case "duration":
+        return f.duration_minutes ? this._formatDuration(f.duration_minutes * 60000) : null;
+      case "distance":
+        return f.distance_km ? `${Math.round(f.distance_km).toLocaleString(lang)} km` : null;
+      case "aircraft":
+        return f.aircraft;
+      case "seat":
+        return f.seat_number ? `Seat ${f.seat_number}` : null;
+      case "seat_class":
+        return f.seat_class ? f.seat_class[0].toUpperCase() + f.seat_class.slice(1) : null;
+      default:
+        return null;
+    }
+  }
+
   _renderHeader() {
     const inFlight = this._state("in_flight");
     const next = this._state("next_flight");
@@ -209,7 +282,7 @@ class AirTrailCard extends HTMLElement {
         <div class="header" data-entity="${escape(inFlight.entity_id)}">
           ${this._shape("mdi:airplane", true)}
           <div class="info">
-            <span class="primary">${escape(f.title)}</span>
+            <span class="primary">${this._title(f, { html: true })}</span>
             <span class="secondary">${escape(secondary)}</span>
           </div>
         </div>
@@ -237,13 +310,13 @@ class AirTrailCard extends HTMLElement {
         <div class="header" data-entity="${escape(next.entity_id)}">
           ${this._shape("mdi:airplane-takeoff")}
           <div class="info">
-            <span class="primary">${escape(f.title)}</span>
+            <span class="primary">${this._title(f, { html: true })}</span>
             <span class="secondary">${escape(secondary.join(" · "))}</span>
           </div>
         </div>`;
     }
 
-    const lastTitle = last?.attributes?.title;
+    const lastTitle = last?.attributes?.id !== undefined ? this._title(last.attributes) : null;
     return `
       <div class="header" data-entity="${escape(last?.entity_id ?? "")}">
         ${this._shape("mdi:airplane-off", false, true)}
@@ -338,14 +411,12 @@ class AirTrailCard extends HTMLElement {
         ${flights
           .map((f) => {
             const date = parseLocal(f.departure_local || f.date);
-            const time = f.departure_local
-              ? this._formatLocal(f.departure_local, { hour: "2-digit", minute: "2-digit" })
-              : null;
-            const cities =
-              f.origin_city && f.destination_city
-                ? `${f.origin_city} → ${f.destination_city}`
-                : null;
-            const secondary = [f.flight_number, f.airline, time].filter(Boolean).join(" · ");
+            const details = this._config.entry_details || [];
+            const secondary = details
+              .filter((key) => key !== "relative")
+              .map((key) => this._detail(f, key))
+              .filter(Boolean)
+              .join(" · ");
             return `
               <div class="row">
                 <div class="date">
@@ -353,10 +424,10 @@ class AirTrailCard extends HTMLElement {
                   <span class="month">${date ? escape(this._formatLocal(f.departure_local || f.date, { month: "short" })) : ""}</span>
                 </div>
                 <div class="info">
-                  <span class="primary">${escape(f.route)}${cities ? ` <span class="muted">${escape(cities)}</span>` : ""}</span>
-                  <span class="secondary">${escape(secondary)}</span>
+                  <span class="primary">${this._route(f, { html: true })}</span>
+                  ${secondary ? `<span class="secondary">${escape(secondary)}</span>` : ""}
                 </div>
-                <span class="badge">${escape(this._relative(f))}</span>
+                ${details.includes("relative") ? `<span class="badge">${escape(this._relative(f))}</span>` : ""}
               </div>`;
           })
           .join("")}
@@ -483,6 +554,11 @@ const STYLES = `
     line-height: 16px;
     color: var(--secondary-text-color);
   }
+  .separator {
+    margin: 0 6px;
+    font-weight: normal;
+    color: var(--secondary-text-color);
+  }
   .muted {
     font-weight: normal;
     color: var(--secondary-text-color);
@@ -591,11 +667,36 @@ const EDITOR_SCHEMA = [
     },
   },
   { name: "max_flights", selector: { number: { min: 1, max: 20, mode: "box" } } },
+  {
+    name: "entry_details",
+    selector: {
+      select: {
+        multiple: true,
+        reorder: true,
+        mode: "dropdown",
+        options: Object.entries(ENTRY_DETAILS).map(([value, label]) => ({ value, label })),
+      },
+    },
+  },
+  {
+    name: "route",
+    selector: {
+      select: {
+        mode: "box",
+        options: [
+          { value: "codes", label: "Airport codes", description: "LHR → JFK" },
+          { value: "locations", label: "Locations", description: "London → New York" },
+          { value: "both", label: "Both", description: "LHR → JFK · London → New York" },
+        ],
+      },
+    },
+  },
 ];
 
 const EDITOR_HELPERS = {
   stats: "Badges shown below the next flight, in this order",
   lists: "Flight lists shown at the bottom of the card, in this order",
+  entry_details: "What each flight in the lists shows beneath its route, in this order",
 };
 
 const EDITOR_LABELS = {
@@ -606,6 +707,8 @@ const EDITOR_LABELS = {
   stats: "Statistics",
   lists: "Flight lists",
   max_flights: "Flights to show",
+  entry_details: "Entry details",
+  route: "Route",
 };
 
 class AirTrailCardEditor extends HTMLElement {
