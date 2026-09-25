@@ -295,6 +295,9 @@ class Flight:
             "seat_class": passenger.seat_class if passenger else None,
             "flight_reason": passenger.flight_reason if passenger else None,
             "passengers": [p.name for p in self.passengers if p.name],
+            "other_passengers": [
+                p.name for p in self.passengers if p.name and p is not passenger
+            ],
             "note": self.note,
         }
 

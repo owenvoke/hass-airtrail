@@ -104,6 +104,8 @@ class AirTrailCard extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this._signature = null;
+    // Keys of the header / list entries whose details are expanded
+    this._expanded = new Set();
   }
 
   setConfig(config) {
@@ -202,17 +204,6 @@ class AirTrailCard extends HTMLElement {
     return h ? `${h}h ${m}m` : `${m}m`;
   }
 
-  _moreInfo(entityId) {
-    if (!entityId) return;
-    this.dispatchEvent(
-      new CustomEvent("hass-more-info", {
-        detail: { entityId },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  }
-
   /** The route as airport codes, locations or both, honouring the card options. */
   _route(f, { html = false } = {}) {
     const codes = f.origin && f.destination ? `${f.origin} → ${f.destination}` : f.route;
@@ -264,6 +255,59 @@ class AirTrailCard extends HTMLElement {
     }
   }
 
+  _renderDetails(f) {
+    const lang = this._hass.locale?.language;
+    const when = (value) =>
+      value
+        ? this._formatLocal(value, {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : null;
+    const airport = (name, code) => (name ? `${name}${code ? ` (${code})` : ""}` : code);
+    const terminalGate = (terminal, gate) =>
+      [terminal && `Terminal ${terminal}`, gate && `Gate ${gate}`].filter(Boolean).join(" · ");
+    const capitalise = (value) => (value ? value[0].toUpperCase() + value.slice(1) : null);
+    const others = f.other_passengers || [];
+
+    const rows = [
+      ["From", airport(f.origin_name, f.origin)],
+      ["To", airport(f.destination_name, f.destination)],
+      ["Departs", when(f.departure_local) && `${when(f.departure_local)} local`],
+      ["Arrives", when(f.arrival_local) && `${when(f.arrival_local)} local`],
+      ["Departure", terminalGate(f.departure_terminal, f.departure_gate)],
+      ["Arrival", terminalGate(f.arrival_terminal, f.arrival_gate)],
+      ["Airline", [f.airline, f.flight_number].filter(Boolean).join(" · ")],
+      ["Aircraft", [f.aircraft, f.aircraft_registration].filter(Boolean).join(" · ")],
+      ["Seat", [f.seat_number, capitalise(f.seat)].filter(Boolean).join(" · ")],
+      ["Class", capitalise(f.seat_class)],
+      ["Reason", capitalise(f.flight_reason)],
+      ["Duration", f.duration_minutes ? this._formatDuration(f.duration_minutes * 60000) : null],
+      ["Distance", f.distance_km ? `${Math.round(f.distance_km).toLocaleString(lang)} km` : null],
+      ["With", others.length ? others.join(", ") : null],
+      ["Note", f.note],
+    ].filter(([, value]) => value);
+
+    return `
+      <dl class="details">
+        ${rows.map(([label, value]) => `<dt>${label}</dt><dd>${escape(value)}</dd>`).join("")}
+      </dl>`;
+  }
+
+  /** A header or list entry that expands to show the flight's details when tapped. */
+  _expandable(key, f, content) {
+    const expanded = this._expanded.has(key);
+    return `
+      <div class="entry ${expanded ? "expanded" : ""}">
+        <div class="toggle" data-toggle="${escape(key)}" role="button" tabindex="0"
+          aria-expanded="${expanded}">${content}</div>
+        ${expanded ? this._renderDetails(f) : ""}
+      </div>`;
+  }
+
   _renderHeader() {
     const inFlight = this._state("in_flight");
     const next = this._state("next_flight");
@@ -279,13 +323,17 @@ class AirTrailCard extends HTMLElement {
         ? `In flight · lands in ${this._formatDuration(end - now)}`
         : "In flight";
       return `
-        <div class="header" data-entity="${escape(inFlight.entity_id)}">
-          ${this._shape("mdi:airplane", true)}
-          <div class="info">
-            <span class="primary">${this._title(f, { html: true })}</span>
-            <span class="secondary">${escape(secondary)}</span>
-          </div>
-        </div>
+        ${this._expandable(
+          "header",
+          f,
+          `<div class="header">
+            ${this._shape("mdi:airplane", true)}
+            <div class="info">
+              <span class="primary">${this._title(f, { html: true })}</span>
+              <span class="secondary">${escape(secondary)}</span>
+            </div>
+          </div>`,
+        )}
         ${progress !== null ? `<div class="progress"><div style="width:${progress.toFixed(1)}%"></div></div>` : ""}`;
     }
 
@@ -306,25 +354,30 @@ class AirTrailCard extends HTMLElement {
         f.departure_gate && `Gate ${f.departure_gate}`,
         f.seat_number && `Seat ${f.seat_number}`,
       ].filter(Boolean);
-      return `
-        <div class="header" data-entity="${escape(next.entity_id)}">
+      return this._expandable(
+        "header",
+        f,
+        `<div class="header">
           ${this._shape("mdi:airplane-takeoff")}
           <div class="info">
             <span class="primary">${this._title(f, { html: true })}</span>
             <span class="secondary">${escape(secondary.join(" · "))}</span>
           </div>
-        </div>`;
+        </div>`,
+      );
     }
 
     const lastTitle = last?.attributes?.id !== undefined ? this._title(last.attributes) : null;
-    return `
-      <div class="header" data-entity="${escape(last?.entity_id ?? "")}">
+    const content = `
+      <div class="header">
         ${this._shape("mdi:airplane-off", false, true)}
         <div class="info">
           <span class="primary">No upcoming flights</span>
           ${lastTitle ? `<span class="secondary">Last: ${escape(lastTitle)} · ${escape(this._relative(last.attributes))}</span>` : ""}
         </div>
       </div>`;
+    // Tapping shows the last flight's details, if there is one
+    return lastTitle ? this._expandable("header", last.attributes, content) : content;
   }
 
   _shape(icon, active = false, muted = false) {
@@ -407,7 +460,7 @@ class AirTrailCard extends HTMLElement {
       return `<div class="empty">No ${other}${past ? "past" : "upcoming"} flights${escape(range)}</div>`;
     }
     return `
-      <div class="list" data-entity="${escape(source.entity_id)}">
+      <div class="list">
         ${flights
           .map((f) => {
             const date = parseLocal(f.departure_local || f.date);
@@ -417,7 +470,10 @@ class AirTrailCard extends HTMLElement {
               .map((key) => this._detail(f, key))
               .filter(Boolean)
               .join(" · ");
-            return `
+            return this._expandable(
+              `${kind}-${f.id}`,
+              f,
+              `
               <div class="row">
                 <div class="date">
                   <span class="day">${date ? date.getUTCDate() : "?"}</span>
@@ -428,7 +484,8 @@ class AirTrailCard extends HTMLElement {
                   ${secondary ? `<span class="secondary">${escape(secondary)}</span>` : ""}
                 </div>
                 ${details.includes("relative") ? `<span class="badge">${escape(this._relative(f))}</span>` : ""}
-              </div>`;
+              </div>`,
+            );
           })
           .join("")}
       </div>`;
@@ -456,10 +513,19 @@ class AirTrailCard extends HTMLElement {
         </div>
       </ha-card>`;
 
-    this.shadowRoot.querySelectorAll("[data-entity]").forEach((el) => {
-      el.addEventListener("click", (ev) => {
+    this.shadowRoot.querySelectorAll("[data-toggle]").forEach((el) => {
+      const toggle = (ev) => {
         ev.stopPropagation();
-        this._moreInfo(el.dataset.entity);
+        const key = el.dataset.toggle;
+        if (!this._expanded.delete(key)) this._expanded.add(key);
+        this._render();
+      };
+      el.addEventListener("click", toggle);
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          toggle(ev);
+        }
       });
     });
 
@@ -503,9 +569,32 @@ const STYLES = `
     gap: var(--spacing);
     min-width: 0;
   }
-  .header,
-  .list {
+  .toggle {
     cursor: pointer;
+    border-radius: var(--mush-control-border-radius, 12px);
+    outline: none;
+  }
+  .toggle:focus-visible {
+    box-shadow: 0 0 0 2px var(--airtrail-color);
+  }
+  .details {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    margin: 8px 0 2px calc(var(--icon-size) + var(--spacing));
+    padding: 10px 12px;
+    border-radius: var(--mush-control-border-radius, 12px);
+    background: var(--secondary-background-color);
+    font-size: var(--secondary-size);
+    line-height: 16px;
+  }
+  .details dt {
+    color: var(--secondary-text-color);
+  }
+  .details dd {
+    margin: 0;
+    color: var(--primary-text-color);
+    overflow-wrap: anywhere;
   }
   .shape {
     flex: none;

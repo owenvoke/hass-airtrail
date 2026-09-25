@@ -97,7 +97,9 @@ type: custom:airtrail-card
 ³ Any of `flight_number`, `airline`, `departure_time`, `arrival_time`, `duration`, `distance`, `aircraft`,
 `seat`, `seat_class` and `relative` (the time until or since the flight, shown on the right).
 
-Tapping any part of the card opens the details of the related entity. The card uses Mushroom's theme variables, so
+Tapping the next flight or any flight in the lists expands it to show all of its details (airports, local times,
+terminals and gates, aircraft, seat, duration, distance, other passengers and notes). Tapping a statistic opens the
+entity's details. The card uses Mushroom's theme variables, so
 it matches Mushroom cards and themes, but Mushroom doesn't need to be installed.
 
 ### Example
