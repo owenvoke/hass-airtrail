@@ -107,6 +107,9 @@ terminals and gates, aircraft, seat, duration, distance, other passengers and no
 entity's details. The card uses Mushroom's theme variables, so
 it matches Mushroom cards and themes, but Mushroom doesn't need to be installed.
 
+When the card loads it logs `✈ AirTrail build <hash>` to the browser console, which shows which build of the card
+your browser is running.
+
 ### Example
 
 Send a notification with your gate when a flight is three hours away:

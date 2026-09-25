@@ -902,6 +902,14 @@ class AirTrailCardEditor extends HTMLElement {
   }
 }
 
+// Show which build of the card has loaded (the `v` query is a hash of this file)
+const build = new URL(import.meta.url).searchParams.get("v");
+console.info(
+  `%c✈ AirTrail%c ${build ? `build ${build}` : "card"}`,
+  "background:#3c83f6;color:#fff;padding:2px 8px;border-radius:4px 0 0 4px;font-weight:bold;",
+  "background:#1f2937;color:#3c83f6;padding:2px 8px;border-radius:0 4px 4px 0;font-weight:bold;",
+);
+
 const defineElements = () => {
   if (customElements.get("airtrail-card")) return;
   customElements.define("airtrail-card", AirTrailCard);
