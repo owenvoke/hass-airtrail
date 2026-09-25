@@ -74,21 +74,15 @@ const parseLocal = (value) => {
 
 const LISTS = ["upcoming", "past"];
 
-/** Convert the old single `list` option into `lists`, and validate. */
-const normalizeConfig = (config) => {
-  const { list, ...rest } = config;
-  if (rest.route !== undefined && !ROUTES.includes(rest.route)) {
+const validateConfig = (config) => {
+  if (config.route !== undefined && !ROUTES.includes(config.route)) {
     throw new Error(`route must be one of: ${ROUTES.join(", ")}`);
   }
-  if (list !== undefined && rest.lists === undefined) {
-    rest.lists = { both: ["upcoming", "past"], none: [] }[list] ?? [list];
-  }
-  if (rest.lists !== undefined) {
-    if (!Array.isArray(rest.lists) || rest.lists.some((l) => !LISTS.includes(l))) {
+  if (config.lists !== undefined) {
+    if (!Array.isArray(config.lists) || config.lists.some((l) => !LISTS.includes(l))) {
       throw new Error(`lists must only contain: ${LISTS.join(", ")}`);
     }
   }
-  return rest;
 };
 
 class AirTrailCard extends HTMLElement {
@@ -109,7 +103,8 @@ class AirTrailCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { ...DEFAULT_CONFIG, ...normalizeConfig(config) };
+    validateConfig(config);
+    this._config = { ...DEFAULT_CONFIG, ...config };
     this._signature = null;
     if (this._hass) this._render();
   }
@@ -876,7 +871,7 @@ class AirTrailCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.data = { ...DEFAULT_CONFIG, ...normalizeConfig(this._config) };
+    this._form.data = { ...DEFAULT_CONFIG, ...this._config };
   }
 }
 
