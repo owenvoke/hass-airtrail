@@ -823,13 +823,15 @@ const EDITOR_SCHEMA = [
 ];
 
 const EDITOR_HELPERS = {
+  // The device picker only shows its label once a device is chosen, so explain here
+  device: "Leave empty to use the first AirTrail device",
   stats: "Badges shown below the next flight, in this order",
   lists: "Flight lists shown at the bottom of the card, in this order",
   entry_details: "What each flight in the lists shows beneath its route, in this order",
 };
 
 const EDITOR_LABELS = {
-  device: "AirTrail device (defaults to the first one)",
+  device: "AirTrail device",
   title: "Title",
   color: "Accent colour",
   show_header: "Show next / current flight",
