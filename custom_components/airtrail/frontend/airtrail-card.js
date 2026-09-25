@@ -168,13 +168,22 @@ class AirTrailCard extends HTMLElement {
     return entityId ? this._hass.states[entityId] : undefined;
   }
 
-  _relative(flight) {
+  /** Time until departure, or for a flight that has happened, time since it landed. */
+  _relative(flight, { landed = false } = {}) {
     const rtf = new Intl.RelativeTimeFormat(this._hass.locale?.language, {
       numeric: "auto",
     });
     let seconds;
     if (flight.departure) {
-      seconds = (new Date(flight.departure) - Date.now()) / 1000;
+      let instant = new Date(flight.departure).getTime();
+      if (landed) {
+        if (flight.arrival) {
+          instant = new Date(flight.arrival).getTime();
+        } else if (flight.duration_minutes) {
+          instant += flight.duration_minutes * 60000;
+        }
+      }
+      seconds = (instant - Date.now()) / 1000;
     } else {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -396,7 +405,7 @@ class AirTrailCard extends HTMLElement {
         ${this._shape("mdi:airplane-off", false, true)}
         <div class="info">
           <span class="primary">No upcoming flights</span>
-          ${lastTitle ? `<span class="secondary">Last: ${escape(lastTitle)} · ${escape(this._relative(last.attributes))}</span>` : ""}
+          ${lastTitle ? `<span class="secondary">Last: ${escape(lastTitle)} · ${escape(this._relative(last.attributes, { landed: true }))}</span>` : ""}
         </div>
       </div>`;
     // Tapping shows the last flight's details, if there is one
@@ -506,7 +515,7 @@ class AirTrailCard extends HTMLElement {
                   <span class="primary">${this._route(f, { html: true })}</span>
                   ${secondary ? `<span class="secondary">${escape(secondary)}</span>` : ""}
                 </div>
-                ${details.includes("relative") ? `<span class="badge">${escape(this._relative(f))}</span>` : ""}
+                ${details.includes("relative") ? `<span class="badge">${escape(this._relative(f, { landed: past }))}</span>` : ""}
               </div>`,
             );
           })
