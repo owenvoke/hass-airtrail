@@ -823,7 +823,6 @@ const EDITOR_SCHEMA = [
 ];
 
 const EDITOR_HELPERS = {
-  // The device picker only shows its label once a device is chosen, so explain here
   device: "Leave empty to use the first AirTrail device",
   stats: "Badges shown below the next flight, in this order",
   lists: "Flight lists shown at the bottom of the card, in this order",
