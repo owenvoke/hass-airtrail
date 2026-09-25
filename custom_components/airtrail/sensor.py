@@ -72,7 +72,6 @@ FLIGHT_SENSORS: tuple[AirTrailFlightSensorEntityDescription, ...] = (
         translation_key="upcoming_flights",
         icon="mdi:airplane-clock",
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="flights",
         value_fn=lambda data, now, c: len(data.upcoming(now, c.upcoming_days)),
         attributes_fn=lambda data, now, c: {
             "days": c.upcoming_days,
@@ -84,7 +83,6 @@ FLIGHT_SENSORS: tuple[AirTrailFlightSensorEntityDescription, ...] = (
         translation_key="past_flights",
         icon="mdi:history",
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="flights",
         value_fn=lambda data, now, c: len(data.past(now, c.past_days)),
         attributes_fn=lambda data, now, c: {
             "days": c.past_days,
@@ -99,7 +97,6 @@ STATS_SENSORS: tuple[AirTrailStatsSensorEntityDescription, ...] = (
         translation_key="total_flights",
         icon="mdi:airplane",
         state_class=SensorStateClass.TOTAL,
-        native_unit_of_measurement="flights",
         value_fn=lambda stats: stats.get("flights"),
     ),
     AirTrailStatsSensorEntityDescription(
@@ -127,7 +124,6 @@ STATS_SENSORS: tuple[AirTrailStatsSensorEntityDescription, ...] = (
         translation_key="airports_visited",
         icon="mdi:airport",
         state_class=SensorStateClass.TOTAL,
-        native_unit_of_measurement="airports",
         value_fn=lambda stats: stats.get("airports"),
     ),
     AirTrailStatsSensorEntityDescription(
