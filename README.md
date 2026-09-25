@@ -91,13 +91,16 @@ type: custom:airtrail-card
 | `lists`       | `[upcoming]`                                                             | Flight lists to show, in order: `upcoming` and/or `past` (`[]` hides them) |
 | `max_flights` | `5`                                                                      | Maximum number of flights in each list               |
 | `entry_details` | `flight_number`, `airline`, `departure_time`, `relative`               | What each list entry shows, in order ³               |
-| `route`       | `both`                                                                   | How routes are shown: `codes` (`LHR → JFK`), `locations` (`London → New York`) or `both` |
+| `route`       | `[codes, locations]`                                                     | How routes are shown, in order ⁴                     |
 
 ² Any of `upcoming_flights`, `past_flights`, `total_flights`, `total_distance`, `total_flight_time`,
 `airports_visited`, `top_airline`, `top_airport`, `top_aircraft` and `top_route`.
 
 ³ Any of `flight_number`, `airline`, `departure_time`, `arrival_time`, `duration`, `distance`, `aircraft`,
 `seat`, `seat_class` and `relative` (the time until or since the flight, shown on the right).
+
+⁴ Any of `codes` (`LHR → JFK`), `locations` (`London → New York`) and `names`
+(`London Heathrow → John F Kennedy Intl.`), joined with `·`. At least one is always shown.
 
 Tapping the next flight or any flight in the lists expands it to show all of its details (airports, local times,
 terminals and gates, aircraft, seat, duration, distance, other passengers and notes). Tapping a statistic opens the

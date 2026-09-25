@@ -46,10 +46,15 @@ const DEFAULT_CONFIG = {
   lists: ["upcoming"],
   max_flights: 5,
   entry_details: ["flight_number", "airline", "departure_time", "relative"],
-  route: "both",
+  route: ["codes", "locations"],
 };
 
-const ROUTES = ["codes", "locations", "both"];
+// The parts a route can be shown as, with an example for the editor
+const ROUTE_PARTS = {
+  codes: { label: "Airport codes", example: "LHR → JFK" },
+  locations: { label: "Locations", example: "London → New York" },
+  names: { label: "Airport names", example: "London Heathrow → John F Kennedy Intl." },
+};
 
 const escape = (value) =>
   String(value ?? "").replace(
@@ -75,8 +80,11 @@ const parseLocal = (value) => {
 const LISTS = ["upcoming", "past"];
 
 const validateConfig = (config) => {
-  if (config.route !== undefined && !ROUTES.includes(config.route)) {
-    throw new Error(`route must be one of: ${ROUTES.join(", ")}`);
+  if (config.route !== undefined) {
+    const parts = Object.keys(ROUTE_PARTS);
+    if (!Array.isArray(config.route) || config.route.some((p) => !parts.includes(p))) {
+      throw new Error(`route must only contain: ${parts.join(", ")}`);
+    }
   }
   if (config.lists !== undefined) {
     if (!Array.isArray(config.lists) || config.lists.some((l) => !LISTS.includes(l))) {
@@ -208,21 +216,27 @@ class AirTrailCard extends HTMLElement {
     return h ? `${h}h ${m}m` : `${m}m`;
   }
 
-  /** The route as airport codes, locations or both, honouring the card options. */
+  /** The route in each of the configured forms (codes, locations, names), in order. */
   _route(f, { html = false } = {}) {
-    const codes = f.origin && f.destination ? `${f.origin} → ${f.destination}` : f.route;
-    const cities =
-      f.origin_city && f.destination_city ? `${f.origin_city} → ${f.destination_city}` : null;
-    const route = this._config.route || "both";
-    // Fall back to codes when a flight has no locations recorded
-    const showCities = route !== "codes" && cities;
-    const showCodes = route !== "locations" || !showCities;
+    const pair = (from, to) => (from && to ? `${from} → ${to}` : null);
+    const forms = {
+      codes: pair(f.origin, f.destination) || f.route,
+      locations: pair(f.origin_city, f.destination_city),
+      names: pair(f.origin_name, f.destination_name),
+    };
+    const configured = this._config.route?.length ? this._config.route : ["codes"];
+    // Skip forms a flight has no data for, falling back to codes if none remain
+    const parts = configured.map((key) => forms[key]).filter(Boolean);
+    if (!parts.length) parts.push(forms.codes);
 
-    if (!html) return [showCodes && codes, showCities && cities].filter(Boolean).join(" · ");
-    if (showCodes && showCities) {
-      return `${escape(codes)}<span class="separator">·</span><span class="muted">${escape(cities)}</span>`;
-    }
-    return escape(showCodes ? codes : cities);
+    if (!html) return parts.join(" · ");
+    return parts
+      .map((part, i) =>
+        i === 0
+          ? escape(part)
+          : `<span class="separator">·</span><span class="muted">${escape(part)}</span>`,
+      )
+      .join("");
   }
 
   _title(f, options) {
@@ -811,18 +825,20 @@ const EDITOR_SCHEMA = [
     name: "route",
     selector: {
       select: {
-        mode: "box",
-        options: [
-          { value: "codes", label: "Airport codes", description: "LHR → JFK" },
-          { value: "locations", label: "Locations", description: "London → New York" },
-          { value: "both", label: "Both", description: "LHR → JFK · London → New York" },
-        ],
+        multiple: true,
+        reorder: true,
+        mode: "dropdown",
+        options: Object.entries(ROUTE_PARTS).map(([value, { label, example }]) => ({
+          value,
+          label: `${label} (${example})`,
+        })),
       },
     },
   },
 ];
 
 const EDITOR_HELPERS = {
+  route: "How routes are shown, in this order. At least one is always shown",
   device: "Leave empty to use the first AirTrail device",
   stats: "Badges shown below the next flight, in this order",
   lists: "Flight lists shown at the bottom of the card, in this order",
@@ -861,9 +877,19 @@ class AirTrailCardEditor extends HTMLElement {
       this._form.computeHelper = (schema) => EDITOR_HELPERS[schema.name];
       this._form.addEventListener("value-changed", (ev) => {
         ev.stopPropagation();
+        let config = ev.detail.value;
+        // A route must always show something, so undo removing its last part
+        if (!config.route?.length) {
+          const route = [...(this._config.route?.length ? this._config.route : DEFAULT_CONFIG.route)];
+          config = { ...config, route };
+          // Restore the badge once the form has finished handling the removal
+          requestAnimationFrame(() => {
+            this._form.data = { ...DEFAULT_CONFIG, ...config, route: [...route] };
+          });
+        }
         this.dispatchEvent(
           new CustomEvent("config-changed", {
-            detail: { config: ev.detail.value },
+            detail: { config },
             bubbles: true,
             composed: true,
           }),
