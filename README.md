@@ -73,7 +73,9 @@ Flights that are only recorded to the month or year are excluded from the time-b
 
 The integration includes a Mushroom-style dashboard card, which is loaded automatically (no resource needs adding). It
 shows your next flight (or live progress while you're in the air), statistic chips and a list of upcoming or past
-flights. Search for "AirTrail" when adding a card to use the visual editor, or add it in YAML:
+flights. Within 24 hours of departure the next flight is highlighted with a countdown, terminal and gate, and while
+you're in the air it shows the time remaining and local arrival time. Search for "AirTrail" when adding a card to use
+the visual editor, or add it in YAML:
 
 ```yaml
 type: custom:airtrail-card

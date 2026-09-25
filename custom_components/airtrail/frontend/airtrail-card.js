@@ -319,9 +319,17 @@ class AirTrailCard extends HTMLElement {
       const end = f.arrival ? new Date(f.arrival).getTime() : null;
       const now = Date.now();
       const progress = end ? Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100)) : null;
-      const secondary = end
-        ? `In flight · lands in ${this._formatDuration(end - now)}`
-        : "In flight";
+      const arrivalTime = f.arrival_local
+        ? this._formatLocal(f.arrival_local, { hour: "2-digit", minute: "2-digit" })
+        : null;
+      const secondary = [
+        end ? `In flight · lands in ${this._formatDuration(end - now)}` : "In flight",
+        arrivalTime && `${arrivalTime} local`,
+        f.arrival_terminal && `Terminal ${f.arrival_terminal}`,
+        f.arrival_gate && `Gate ${f.arrival_gate}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
       return `
         ${this._expandable(
           "header",
@@ -348,16 +356,31 @@ class AirTrailCard extends HTMLElement {
             minute: "2-digit",
           })
         : this._formatLocal(f.date, { weekday: "short", day: "numeric", month: "short" });
-      const secondary = [
-        this._relative(f),
-        when,
-        f.departure_gate && `Gate ${f.departure_gate}`,
-        f.seat_number && `Seat ${f.seat_number}`,
-      ].filter(Boolean);
+      // On the day of departure, lead with a countdown and where to go
+      const untilDeparture = f.departure ? new Date(f.departure).getTime() - Date.now() : null;
+      const today = !f.departure && f.date === new Date().toLocaleDateString("sv");
+      const soon = today || (untilDeparture !== null && untilDeparture < 86400000);
+      const secondary = soon
+        ? [
+            untilDeparture !== null
+              ? `Departs in ${this._formatDuration(untilDeparture)}`
+              : "Departs today",
+            f.departure_local &&
+              this._formatLocal(f.departure_local, { hour: "2-digit", minute: "2-digit" }),
+            f.departure_terminal && `Terminal ${f.departure_terminal}`,
+            f.departure_gate && `Gate ${f.departure_gate}`,
+            f.seat_number && `Seat ${f.seat_number}`,
+          ].filter(Boolean)
+        : [
+            this._relative(f),
+            when,
+            f.departure_gate && `Gate ${f.departure_gate}`,
+            f.seat_number && `Seat ${f.seat_number}`,
+          ].filter(Boolean);
       return this._expandable(
         "header",
         f,
-        `<div class="header">
+        `<div class="header ${soon ? "soon" : ""}">
           ${this._shape("mdi:airplane-takeoff")}
           <div class="info">
             <span class="primary">${this._title(f, { html: true })}</span>
@@ -607,6 +630,19 @@ const STYLES = `
     background: color-mix(in srgb, var(--airtrail-color) 20%, transparent);
     color: var(--airtrail-color);
     --mdc-icon-size: 20px;
+  }
+  .header.soon {
+    margin: -6px;
+    padding: 6px;
+    border-radius: var(--mush-control-border-radius, 12px);
+    background: color-mix(in srgb, var(--airtrail-color) 12%, transparent);
+  }
+  .header.soon .shape {
+    background: var(--airtrail-color);
+    color: var(--text-primary-color, #fff);
+  }
+  .header.soon .secondary {
+    color: var(--primary-text-color);
   }
   .shape.active ha-icon {
     animation: fly 2s ease-in-out infinite;
