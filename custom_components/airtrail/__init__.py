@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .card import async_register_card
+from .card import async_ensure_card_resource, async_register_card, async_unregister_card
 from .const import DOMAIN
 from .coordinator import AirTrailConfigEntry, AirTrailUpdateCoordinator
 
@@ -25,6 +25,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AirTrailConfigEntry) -> bool:
+    await async_ensure_card_resource(hass)
+
     coordinator = AirTrailUpdateCoordinator(hass, entry)
 
     await coordinator.async_config_entry_first_refresh()
@@ -41,6 +43,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: AirTrailConfigEntry) -> 
 async def async_unload_entry(hass: HomeAssistant, entry: AirTrailConfigEntry) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: AirTrailConfigEntry) -> None:
+    """Remove the card's dashboard resource when the last entry is removed."""
+    if not hass.config_entries.async_entries(DOMAIN):
+        await async_unregister_card(hass)
 
 
 async def options_update_listener(
