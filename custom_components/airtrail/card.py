@@ -77,5 +77,6 @@ async def _async_update_resource(hass: HomeAssistant, url: str | None) -> None:
             await resources.async_update_item(
                 existing[0]["id"], {"res_type": "module", "url": url}
             )
-    except Exception:  # noqa: BLE001 - the card still loads via the extra module
+    except Exception:
+        # The card still loads via the extra module
         _LOGGER.exception("Unable to update the AirTrail card dashboard resource")

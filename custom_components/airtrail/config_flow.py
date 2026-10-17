@@ -77,13 +77,11 @@ async def _validate(hass: HomeAssistant, data: Mapping[str, Any]) -> str | None:
     return detect_user_id(await client.flights())
 
 
-def _errors_for(err: Exception) -> dict[str, str]:
+def _errors_for(err: AirTrailError) -> dict[str, str]:
     if isinstance(err, AirTrailAuthError):
         return {"base": "invalid_auth"}
     if isinstance(err, AirTrailConnectionError):
         return {"base": "cannot_connect"}
-    if not isinstance(err, AirTrailError):
-        _LOGGER.exception("Unexpected error validating AirTrail credentials")
     return {"base": "unknown"}
 
 
@@ -109,9 +107,12 @@ class AirTrailConfigFlow(ConfigFlow, domain=DOMAIN):
             user_input[CONF_URL] = user_input[CONF_URL].strip().rstrip("/")
             try:
                 user_id = await _validate(self.hass, user_input)
-            except Exception as err:
+            except AirTrailError as err:
                 _LOGGER.debug("Unable to validate AirTrail credentials: %s", err)
                 errors = _errors_for(err)
+            except Exception:
+                _LOGGER.exception("Unexpected error validating AirTrail credentials")
+                errors = {"base": "unknown"}
             else:
                 # Make sure we're not configuring the same user twice
                 await self.async_set_unique_id(
@@ -145,8 +146,11 @@ class AirTrailConfigFlow(ConfigFlow, domain=DOMAIN):
             data = {**entry.data, **user_input}
             try:
                 user_id = await _validate(self.hass, data)
-            except Exception as err:
+            except AirTrailError as err:
                 errors = _errors_for(err)
+            except Exception:
+                _LOGGER.exception("Unexpected error validating AirTrail credentials")
+                errors = {"base": "unknown"}
             else:
                 # A key for a different user would show someone else's flights.
                 # The user is only known when they have flights, so only compare

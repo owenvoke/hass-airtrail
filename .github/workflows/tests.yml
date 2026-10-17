@@ -48,7 +48,7 @@ jobs:
 
   style:
     runs-on: ubuntu-latest
-    name: Check style formatting
+    name: Lint and check formatting
     steps:
 
       - name: Checkout
@@ -57,10 +57,13 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.x'
+          python-version: '3.14'
 
       - name: Install Python dependencies
-        run: python3 -m pip install black
+        run: python3 -m pip install -r requirements_lint.txt
+
+      - name: Lint
+        run: ruff check --output-format=github .
 
       - name: Style Check
-        run: black --color --check .
+        run: ruff format --check --diff .
