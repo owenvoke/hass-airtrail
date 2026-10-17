@@ -1,0 +1,44 @@
+{
+    "entity": {
+        "sensor": {
+            "next_flight": {
+                "default": "mdi:airplane-takeoff"
+            },
+            "last_flight": {
+                "default": "mdi:airplane-landing"
+            },
+            "upcoming_flights": {
+                "default": "mdi:airplane-clock"
+            },
+            "past_flights": {
+                "default": "mdi:history"
+            },
+            "total_flights": {
+                "default": "mdi:airplane"
+            },
+            "total_distance": {
+                "default": "mdi:map-marker-distance"
+            },
+            "airports_visited": {
+                "default": "mdi:airport"
+            },
+            "top_airline": {
+                "default": "mdi:airplane-marker"
+            },
+            "top_airport": {
+                "default": "mdi:airport"
+            },
+            "top_aircraft": {
+                "default": "mdi:airplane-cog"
+            },
+            "top_route": {
+                "default": "mdi:routes"
+            }
+        },
+        "binary_sensor": {
+            "in_flight": {
+                "default": "mdi:airplane"
+            }
+        }
+    }
+}

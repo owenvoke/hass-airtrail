@@ -2,7 +2,8 @@
     "config": {
         "abort": {
             "already_configured": "AirTrail has already been configured for this user",
-            "reauth_successful": "Re-authentication was successful"
+            "reauth_successful": "Re-authentication was successful",
+            "wrong_account": "This API key belongs to a different AirTrail user."
         },
         "error": {
             "cannot_connect": "Could not connect to AirTrail. Check the URL and that the instance is reachable.",

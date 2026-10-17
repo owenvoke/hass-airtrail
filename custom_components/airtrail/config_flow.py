@@ -9,6 +9,7 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
+    OptionsFlowWithReload,
 )
 from homeassistant.const import (
     CONF_API_KEY,
@@ -76,12 +77,23 @@ async def _validate(hass: HomeAssistant, data: Mapping[str, Any]) -> str | None:
     return detect_user_id(await client.flights())
 
 
-def _errors_for(err: AirTrailError) -> dict[str, str]:
+def _errors_for(err: Exception) -> dict[str, str]:
     if isinstance(err, AirTrailAuthError):
         return {"base": "invalid_auth"}
     if isinstance(err, AirTrailConnectionError):
         return {"base": "cannot_connect"}
+    if not isinstance(err, AirTrailError):
+        _LOGGER.exception("Unexpected error validating AirTrail credentials")
     return {"base": "unknown"}
+
+
+def _host(url: str) -> str:
+    return urlparse(url).netloc or url
+
+
+def _unique_id(url: str, user_id: str | None) -> str:
+    host = _host(url)
+    return f"{host}_{user_id}" if user_id else host
 
 
 class AirTrailConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -97,18 +109,18 @@ class AirTrailConfigFlow(ConfigFlow, domain=DOMAIN):
             user_input[CONF_URL] = user_input[CONF_URL].strip().rstrip("/")
             try:
                 user_id = await _validate(self.hass, user_input)
-            except AirTrailError as err:
+            except Exception as err:
                 _LOGGER.debug("Unable to validate AirTrail credentials: %s", err)
                 errors = _errors_for(err)
             else:
-                host = urlparse(user_input[CONF_URL]).netloc or user_input[CONF_URL]
-
                 # Make sure we're not configuring the same user twice
-                await self.async_set_unique_id(f"{host}_{user_id}" if user_id else host)
+                await self.async_set_unique_id(
+                    _unique_id(user_input[CONF_URL], user_id)
+                )
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title=f"AirTrail ({host})",
+                    title=f"AirTrail ({_host(user_input[CONF_URL])})",
                     data=user_input,
                 )
 
@@ -132,10 +144,16 @@ class AirTrailConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input:
             data = {**entry.data, **user_input}
             try:
-                await _validate(self.hass, data)
-            except AirTrailError as err:
+                user_id = await _validate(self.hass, data)
+            except Exception as err:
                 errors = _errors_for(err)
             else:
+                # A key for a different user would show someone else's flights.
+                # The user is only known when they have flights, so only compare
+                # when both the entry and the new key identify one.
+                if user_id and entry.unique_id != _host(data[CONF_URL]):
+                    await self.async_set_unique_id(_unique_id(data[CONF_URL], user_id))
+                    self._abort_if_unique_id_mismatch(reason="wrong_account")
                 return self.async_update_reload_and_abort(entry, data=data)
 
         return self.async_show_form(
@@ -159,7 +177,7 @@ def _days_selector() -> NumberSelector:
     )
 
 
-class AirTrailOptionsFlowHandler(OptionsFlow):
+class AirTrailOptionsFlowHandler(OptionsFlowWithReload):
     """Config flow options handler for AirTrail."""
 
     async def async_step_init(

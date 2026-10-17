@@ -6,11 +6,13 @@ from homeassistant.components.calendar import (
     CalendarEvent,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import AirTrailConfigEntry
 from .entity import AirTrailEntity
 from .models import Flight
+
+PARALLEL_UPDATES = 0
 
 FLIGHTS = CalendarEntityDescription(key="flights", translation_key="flights")
 
@@ -18,7 +20,7 @@ FLIGHTS = CalendarEntityDescription(key="flights", translation_key="flights")
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: AirTrailConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the calendar for this entry."""
     async_add_entities([AirTrailCalendarEntity(entry.runtime_data, FLIGHTS)])

@@ -5,22 +5,23 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import AirTrailConfigEntry
 from .entity import AirTrailEntity
 
+PARALLEL_UPDATES = 0
+
 IN_FLIGHT = BinarySensorEntityDescription(
     key="in_flight",
     translation_key="in_flight",
-    icon="mdi:airplane",
 )
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: AirTrailConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the binary sensors for this entry."""
     async_add_entities([AirTrailInFlightEntity(entry.runtime_data, IN_FLIGHT)])

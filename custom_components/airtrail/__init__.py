@@ -35,8 +35,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AirTrailConfigEntry) -> 
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.async_on_unload(entry.add_update_listener(options_update_listener))
-
     return True
 
 
@@ -49,10 +47,3 @@ async def async_remove_entry(hass: HomeAssistant, entry: AirTrailConfigEntry) ->
     """Remove the card's dashboard resource when the last entry is removed."""
     if not hass.config_entries.async_entries(DOMAIN):
         await async_unregister_card(hass)
-
-
-async def options_update_listener(
-    hass: HomeAssistant, entry: AirTrailConfigEntry
-) -> None:
-    """Handle options update."""
-    await hass.config_entries.async_reload(entry.entry_id)

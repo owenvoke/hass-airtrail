@@ -11,11 +11,13 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import AirTrailConfigEntry, AirTrailUpdateCoordinator
 from .entity import AirTrailEntity
 from .models import AirTrailData
+
+PARALLEL_UPDATES = 0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -46,7 +48,6 @@ FLIGHT_SENSORS: tuple[AirTrailFlightSensorEntityDescription, ...] = (
     AirTrailFlightSensorEntityDescription(
         key="next_flight",
         translation_key="next_flight",
-        icon="mdi:airplane-takeoff",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=lambda data, now, _: (
             flight.start if (flight := data.next_flight(now)) else None
@@ -58,7 +59,6 @@ FLIGHT_SENSORS: tuple[AirTrailFlightSensorEntityDescription, ...] = (
     AirTrailFlightSensorEntityDescription(
         key="last_flight",
         translation_key="last_flight",
-        icon="mdi:airplane-landing",
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=lambda data, now, _: (
             flight.end if (flight := data.last_flight(now)) else None
@@ -70,7 +70,6 @@ FLIGHT_SENSORS: tuple[AirTrailFlightSensorEntityDescription, ...] = (
     AirTrailFlightSensorEntityDescription(
         key="upcoming_flights",
         translation_key="upcoming_flights",
-        icon="mdi:airplane-clock",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data, now, c: len(data.upcoming(now, c.upcoming_days)),
         attributes_fn=lambda data, now, c: {
@@ -81,7 +80,6 @@ FLIGHT_SENSORS: tuple[AirTrailFlightSensorEntityDescription, ...] = (
     AirTrailFlightSensorEntityDescription(
         key="past_flights",
         translation_key="past_flights",
-        icon="mdi:history",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data, now, c: len(data.past(now, c.past_days)),
         attributes_fn=lambda data, now, c: {
@@ -95,14 +93,12 @@ STATS_SENSORS: tuple[AirTrailStatsSensorEntityDescription, ...] = (
     AirTrailStatsSensorEntityDescription(
         key="total_flights",
         translation_key="total_flights",
-        icon="mdi:airplane",
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda stats: stats.get("flights"),
     ),
     AirTrailStatsSensorEntityDescription(
         key="total_distance",
         translation_key="total_distance",
-        icon="mdi:map-marker-distance",
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
@@ -122,35 +118,30 @@ STATS_SENSORS: tuple[AirTrailStatsSensorEntityDescription, ...] = (
     AirTrailStatsSensorEntityDescription(
         key="airports_visited",
         translation_key="airports_visited",
-        icon="mdi:airport",
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda stats: stats.get("airports"),
     ),
     AirTrailStatsSensorEntityDescription(
         key="top_airline",
         translation_key="top_airline",
-        icon="mdi:airplane-marker",
         value_fn=lambda stats: (stats.get("topAirline") or {}).get("name"),
         attributes_fn=lambda stats: stats.get("topAirline"),
     ),
     AirTrailStatsSensorEntityDescription(
         key="top_airport",
         translation_key="top_airport",
-        icon="mdi:airport",
         value_fn=lambda stats: (stats.get("topAirport") or {}).get("name"),
         attributes_fn=lambda stats: stats.get("topAirport"),
     ),
     AirTrailStatsSensorEntityDescription(
         key="top_aircraft",
         translation_key="top_aircraft",
-        icon="mdi:airplane-cog",
         value_fn=lambda stats: (stats.get("topAircraft") or {}).get("name"),
         attributes_fn=lambda stats: stats.get("topAircraft"),
     ),
     AirTrailStatsSensorEntityDescription(
         key="top_route",
         translation_key="top_route",
-        icon="mdi:routes",
         value_fn=lambda stats: (
             f"{_airport_name(route['from'])} → {_airport_name(route['to'])}"
             if (route := stats.get("topRoute"))
@@ -164,7 +155,7 @@ STATS_SENSORS: tuple[AirTrailStatsSensorEntityDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: AirTrailConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up all sensors for this entry."""
     coordinator = entry.runtime_data
