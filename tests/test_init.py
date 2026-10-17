@@ -83,6 +83,32 @@ async def test_in_flight_updates_between_refreshes(
     assert airtrail.call_count == calls
 
 
+async def test_only_time_based_entities_refresh_each_minute(
+    hass: HomeAssistant,
+    airtrail: AiohttpClientMocker,
+    config_entry: MockConfigEntry,
+    frozen_time: FrozenDateTimeFactory,
+) -> None:
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, options={CONF_SCAN_INTERVAL: 1440}
+    )
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    stats = f"sensor.{PREFIX}_total_flights"
+    flights = f"sensor.{PREFIX}_upcoming_flights"
+    stats_reported = hass.states.get(stats).last_reported
+    flights_reported = hass.states.get(flights).last_reported
+
+    frozen_time.tick(timedelta(minutes=1))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+
+    assert hass.states.get(stats).last_reported == stats_reported
+    assert hass.states.get(flights).last_reported > flights_reported
+
+
 async def test_calendar_events(
     hass: HomeAssistant, airtrail: AiohttpClientMocker, config_entry: MockConfigEntry
 ) -> None:

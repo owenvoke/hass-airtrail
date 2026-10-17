@@ -15,6 +15,8 @@ class AirTrailEntity(CoordinatorEntity[AirTrailUpdateCoordinator]):
     """Base class for AirTrail entities."""
 
     _attr_has_entity_name = True
+    # Whether the state depends on the current time, not just the fetched data
+    _time_dependent = True
 
     def __init__(
         self,
@@ -37,9 +39,12 @@ class AirTrailEntity(CoordinatorEntity[AirTrailUpdateCoordinator]):
     async def async_added_to_hass(self) -> None:
         """Re-evaluate time-based state between API refreshes."""
         await super().async_added_to_hass()
-        self.async_on_remove(
-            async_track_time_interval(self.hass, self._async_tick, timedelta(minutes=1))
-        )
+        if self._time_dependent:
+            self.async_on_remove(
+                async_track_time_interval(
+                    self.hass, self._async_tick, timedelta(minutes=1)
+                )
+            )
 
     @callback
     def _async_tick(self, _: datetime) -> None:

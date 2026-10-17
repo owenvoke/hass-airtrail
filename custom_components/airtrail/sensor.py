@@ -198,6 +198,8 @@ class AirTrailStatsSensorEntity(AirTrailEntity, SensorEntity):
     """Representation of an AirTrail statistics sensor."""
 
     entity_description: AirTrailStatsSensorEntityDescription
+    # Statistics only change when AirTrail is polled
+    _time_dependent = False
 
     @property
     def available(self) -> bool:
