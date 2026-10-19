@@ -1,6 +1,13 @@
 name: Tests
 
-on: ['push', 'pull_request']
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   hacs:
@@ -12,7 +19,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: HACS Action
-        uses: hacs/action@main
+        uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa # main
         with:
           category: integration
 
@@ -25,30 +32,33 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Hassfest Validation
-        uses: home-assistant/actions/hassfest@master
-
-  pytest:
-    runs-on: ubuntu-latest
-    name: Run tests
-    steps:
-
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-
-      - name: Install Python dependencies
-        run: python3 -m pip install -r requirements_test.txt
-
-      - name: Run tests
-        run: python3 -m pytest
+        uses: home-assistant/actions/hassfest@cd6f3635a740c84d8a14f6121a90068b8ece6bf6 # master
 
   style:
     runs-on: ubuntu-latest
-    name: Lint and check formatting
+    name: Check style formatting
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.x'
+
+      - name: Install Hatch
+        run: python3 -m pip install hatch
+
+      # Runs the Ruff version pinned in pyproject.toml, annotating PRs inline.
+      - name: Style Check
+        run: hatch run lint
+        env:
+          RUFF_OUTPUT_FORMAT: github
+
+  pytest:
+    runs-on: ubuntu-latest
+    name: Tests
     steps:
 
       - name: Checkout
@@ -59,11 +69,8 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Install Python dependencies
-        run: python3 -m pip install -r requirements_lint.txt
+      - name: Install Hatch
+        run: python3 -m pip install hatch
 
-      - name: Lint
-        run: ruff check --output-format=github .
-
-      - name: Style Check
-        run: ruff format --check --diff .
+      - name: Run tests
+        run: hatch run test:pytest
